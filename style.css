@@ -1,0 +1,300 @@
+:root {
+    --primary-color: #0d9488; /* Clinical Teal for Pharma */
+    --secondary-color: #475569;
+    --accent-color: #db2777;  /* Soft Rose for Beauty Industry */
+    --bg-color: #f1f5f9;
+    --card-bg: #ffffff;
+    --text-color: #1e293b;
+    --border-color: #cbd5e1;
+    --success-color: #059669;
+    --danger-color: #ef4444;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    background: radial-gradient(circle at top left, #f1f5f9, #e2e8f0);
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 40px 20px;
+}
+
+.supervisor-header-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--secondary-color);
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+#app {
+    width: 100%;
+    max-width: 1200px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.card {
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 8px; /* Sharper industrial corners */
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+    margin-bottom: 1.5rem;
+    animation: fadeIn 0.3s ease-out;
+    border-top: 5px solid var(--primary-color); /* Pharma accent bar */
+    position: relative;
+}
+
+.card::after {
+    content: "LOGISTICS & CARE SECURE ACCESS";
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    color: var(--border-color);
+    font-weight: 700;
+}
+
+/* Clinical Warehouse Badge Logo Placeholder */
+#auth-section .card::before {
+    content: "";
+    display: block;
+    width: 48px;
+    height: 48px;
+    background-color: var(--primary-color);
+    margin: 0 auto 1.25rem auto;
+    border-radius: 6px;
+    background-image: 
+        linear-gradient(white, white), 
+        linear-gradient(white, white);
+    background-position: center;
+    background-size: 50% 4px, 4px 50%;
+    background-repeat: no-repeat;
+    border: 3px solid #ffffff;
+    box-shadow: 0 4px 15px rgba(13, 148, 136, 0.15);
+}
+
+.form-title { 
+    margin-top: 0; 
+    text-align: center; 
+    color: var(--text-color); 
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 1.25rem;
+}
+
+.hidden { display: none !important; }
+
+input {
+    width: 100%;
+    padding: 0.75rem;
+    margin: 0.5rem 0 1rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-sizing: border-box;
+    background-color: #fcfdfd;
+    transition: all 0.2s ease;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
+    background-color: #ffffff;
+}
+
+button {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: transform 0.1s, opacity 0.2s;
+}
+
+button:hover { opacity: 0.95; }
+button:active { transform: scale(0.98); }
+
+.toggle-link {
+    display: block;
+    text-align: center;
+    margin-top: 1.5rem;
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.attendance-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.attendance-controls button {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 1.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.attendance-controls button svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+}
+
+#logoutBtn { width: auto; background: var(--secondary-color); padding: 0.5rem 1rem; }
+
+.table-container { overflow-x: auto; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.action-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 6px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.icon-btn:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.icon-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+tbody tr:hover {
+    background-color: rgba(13, 148, 136, 0.02);
+}
+
+ul { list-style: none; padding: 0; }
+li {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
+}
+.check-in { background-color: var(--success-color); }
+.break-out { background-color: var(--accent-color); }
+.break-in { background-color: var(--primary-color); }
+.time-out { background-color: var(--secondary-color); }
+
+/* Responsive Tweaks */
+@media (max-width: 480px) {
+    .card { padding: 1rem; }
+    h1 { font-size: 1.5rem; }
+    .attendance-controls {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Desktop Optimization for Dashboards */
+@media (min-width: 1024px) {
+    /* Center and constrain auth/pending cards for professional appearance */
+    #auth-section, #pending-view {
+        max-width: 480px;
+        margin: 60px auto;
+    }
+
+    /* Wide layout for supervisor registration inputs */
+    #supervisor-dashboard .attendance-controls:first-of-type {
+        grid-template-columns: 3fr 1fr;
+    }
+
+    /* Ensure primary names in tables have enough space to prevent wrapping */
+    th:first-child, td:first-child {
+        min-width: 250px;
+    }
+}
+
+#third-party-logs small {
+    color: var(--secondary-color);
+    font-style: italic;
+}

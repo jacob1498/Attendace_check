@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Attendance System</h1>
+            <button id="logoutBtn" class="hidden" onclick="auth.logout()">Logout</button>
+        </header>
+
+        <!-- Auth Section -->
+        <section id="auth-section" class="card">
+            <div id="login-view">
+                <h2>Login</h2>
+                <input type="text" id="login-username" placeholder="Username">
+                <input type="password" id="login-password" placeholder="Password">
+                <button onclick="auth.login()">Login</button>
+                <p>Don't have an account? <a href="#" onclick="ui.showView('signup')">Sign Up</a></p>
+            </div>
+
+            <div id="signup-view" class="hidden">
+                <h2>Sign Up</h2>
+                <input type="text" id="signup-username" placeholder="Username">
+                <input type="password" id="signup-password" placeholder="Password">
+                <button onclick="auth.signup()">Register</button>
+                <p>Already have an account? <a href="#" onclick="ui.showView('login')">Login</a></p>
+            </div>
+        </section>
+
+        <!-- User Dashboard -->
+        <section id="user-dashboard" class="hidden card">
+            <h2>Welcome, <span id="display-name"></span></h2>
+            <div class="attendance-controls" style="grid-template-columns: repeat(2, 1fr);">
+                <button onclick="attendance.mark('Check In')">
+                    <svg viewBox="0 0 24 24"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/></svg>
+                    Check In
+                </button>
+                <button onclick="attendance.mark('Break Out')" style="background: var(--accent-color);">
+                    <svg viewBox="0 0 24 24"><path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm-2 10c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V5h10v8zm2-5h-2V5h2v3z"/></svg>
+                    Break Out
+                </button>
+                <button onclick="attendance.mark('Break In')" style="background: var(--primary-color);">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    Break In
+                </button>
+                <button onclick="attendance.mark('Time Out')" style="background: var(--secondary-color);">
+                    <svg viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+                    Time Out
+                </button>
+            </div>
+            <h3>Attendance History</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Activity</th>
+                            <th>Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-logs-table"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Supervisor (Assistant Admin) Dashboard -->
+        <section id="supervisor-dashboard" class="hidden card">
+            <h2>Supervisor Panel: <span id="supervisor-name"></span></h2>
+
+            <div class="supervisor-header-stats">
+                <div class="stat-card">
+                    <span class="stat-label">Current Time</span>
+                    <span id="real-time-clock" class="stat-value">00:00:00</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Total Today</span>
+                    <span id="stat-total" class="stat-value">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">On Break</span>
+                    <span id="stat-break" class="stat-value">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Checked Out</span>
+                    <span id="stat-out" class="stat-value">0</span>
+                </div>
+            </div>
+
+            <div class="card" style="border-top: 3px solid var(--accent-color); margin-top: 1rem; padding: 1.5rem;">
+                <h3 class="form-title" style="font-size: 1rem;">Register 3rd Party / Contractor</h3>
+                <div class="attendance-controls">
+                    <input type="text" id="third-party-name" placeholder="Full Name of 3rd Party" style="margin: 0;">
+                    <button onclick="supervisor.scanPlaceholder()" style="background: var(--secondary-color); font-size: 0.8rem;">Simulate Scan</button>
+                </div>
+                <button onclick="supervisor.addThirdParty()">Register Entry</button>
+            </div>
+
+            <h3>Recent 3rd Party Entries</h3>
+            <input type="text" id="third-party-search" placeholder="Search by name..." oninput="supervisor.renderLogs()" style="margin-bottom: 1rem;">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>3PL Name</th>
+                            <th>In</th>
+                            <th>Break</th>
+                            <th>Return</th>
+                            <th>Out</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="third-party-table-body"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Admin Dashboard -->
+        <section id="admin-dashboard" class="hidden card">
+            <h2>Admin Panel</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Status</th>
+                            <th>Role</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-user-list"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Pending Approval Message -->
+        <section id="pending-view" class="hidden card">
+            <h2>Account Pending</h2>
+            <p>Your account is awaiting approval from the Admin.</p>
+            <button onclick="auth.logout()">Back to Login</button>
+        </section>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
