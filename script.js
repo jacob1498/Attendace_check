@@ -1,3 +1,8 @@
+// Initialize Supabase
+const supabaseUrl = 'https://enskmqmkvdrkttjlzusn.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuc2ttcW1rdmRya3R0amx6dXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzkxMDQsImV4cCI6MjA5MDgxNTEwNH0.o1QFZP5TXyTfI3tveP1hjceOxnHsdjVdCNerq1Zmdho';
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
 // Data Management
 const ICONS = {
     delete: '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
@@ -9,30 +14,17 @@ const ICONS = {
 };
 
 const storage = {
-    getUsers: () => JSON.parse(localStorage.getItem('att_users')) || [],
-    saveUsers: (users) => localStorage.setItem('att_users', JSON.stringify(users)),
-    getThirdParty: () => JSON.parse(localStorage.getItem('att_third_party')) || [],
-    saveThirdParty: (data) => localStorage.setItem('att_third_party', JSON.stringify(data)),
-    getSession: () => localStorage.getItem('att_session'),
-    saveSession: (username) => username ? localStorage.setItem('att_session', username) : localStorage.removeItem('att_session'),
-    init: () => {
-        const users = storage.getUsers();
-        if (!users.find(u => u.role === 'admin')) {
-            users.push({ username: 'admin', password: 'admin123', role: 'admin', status: 'approved', logs: [] });
-            storage.saveUsers(users);
-        }
-
-        // Restore session if exists
-        const sessionUsername = storage.getSession();
-        if (sessionUsername) {
-            const user = users.find(u => u.username === sessionUsername);
-            if (user) {
-                if (user.status === 'pending') {
-                    ui.showView('pending');
-                } else {
-                    auth.loginSuccess(user);
-                }
-            }
+    init: async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+            
+            if (profile?.status === 'pending') ui.showView('pending');
+            else if (profile) auth.loginSuccess(profile);
         }
 
         // Start real-time clock
@@ -49,21 +41,24 @@ let currentUser = null;
 
 // Authentication Logic
 const auth = {
-    login: () => {
-        const userInp = document.getElementById('login-username').value;
+    login: async () => {
+        const email = document.getElementById('login-username').value; // Supabase uses email
         const passInp = document.getElementById('login-password').value;
-        const users = storage.getUsers();
-        const user = users.find(u => u.username === userInp && u.password === passInp);
 
-        if (!user) return alert("Invalid credentials");
-        
-        if (user.status === 'pending') {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password: passInp });
+        if (error) return alert(error.message);
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+        if (profile.status === 'pending') {
             ui.showView('pending');
-            return;
+        } else {
+            auth.loginSuccess(profile);
         }
-
-        storage.saveSession(user.username);
-        auth.loginSuccess(user);
     },
 
     loginSuccess: (user) => {
@@ -84,29 +79,23 @@ const auth = {
         }
     },
 
-    signup: () => {
-        const userInp = document.getElementById('signup-username').value;
+    signup: async () => {
+        const email = document.getElementById('signup-username').value;
         const passInp = document.getElementById('signup-password').value;
-        const users = storage.getUsers();
 
-        if (users.find(u => u.username === userInp)) return alert("Username exists");
-        if (!userInp || !passInp) return alert("Fill all fields");
+        const { data, error } = await supabase.auth.signUp({ email, password: passInp });
+        if (error) return alert(error.message);
 
-        users.push({
-            username: userInp,
-            password: passInp,
-            role: 'user',
-            status: 'pending',
-            logs: []
-        });
+        await supabase.from('profiles').insert([
+            { id: data.user.id, username: email, role: 'user', status: 'pending' }
+        ]);
 
-        storage.saveUsers(users);
         alert("Registration successful! Waiting for Admin approval.");
         ui.showView('login');
     },
 
-    logout: () => {
-        storage.saveSession(null);
+    logout: async () => {
+        await supabase.auth.signOut();
         currentUser = null;
         document.getElementById('logoutBtn').classList.add('hidden');
         ui.showView('login');
@@ -154,31 +143,27 @@ document.addEventListener('keypress', (e) => {
 
 // Attendance Logic
 const attendance = {
-    mark: (type) => {
-        const users = storage.getUsers();
-        const userIdx = users.findIndex(u => u.username === currentUser.username);
-        const log = { type, time: new Date().toLocaleString() };
-        
-        users[userIdx].logs.unshift(log);
-        storage.saveUsers(users);
-        currentUser = users[userIdx];
-        
-        if (currentUser.role === 'supervisor') supervisor.renderLogs();
-        else attendance.renderLogs();
+    mark: async (type) => {
+        await supabase.from('attendance_logs').insert([
+            { user_id: currentUser.id, type: type }
+        ]);
+        attendance.renderLogs();
     },
 
-    renderLogs: () => {
+    renderLogs: async () => {
+        const { data: logs } = await supabase
+            .from('attendance_logs')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+
         const tbody = document.getElementById('user-logs-table');
         if (!tbody) return;
-        tbody.innerHTML = currentUser.logs.map((log, index) => `
+        tbody.innerHTML = logs.map((log) => `
             <tr>
                 <td><span class="status-badge ${log.type.toLowerCase().replace(' ', '-')}">${log.type}</span></td>
-                <td>${log.time}</td>
-                <td>
-                    <button title="Delete Log" onclick="attendance.deleteLog(${index})" class="icon-btn" style="background:var(--danger-color)">
-                        ${ICONS.delete}
-                    </button>
-                </td>
+                <td>${new Date(log.created_at).toLocaleString()}</td>
+                <td>...</td>
             </tr>
         `).join('');
     },
@@ -196,6 +181,19 @@ const attendance = {
 
 // Supervisor / Assistant Admin Logic
 const supervisor = {
+    currentPage: 1,
+    rowsPerPage: 10,
+    lastSearch: '',
+
+    updateRows: () => {
+        supervisor.rowsPerPage = parseInt(document.getElementById('supervisor-rows').value);
+        supervisor.currentPage = 1;
+        supervisor.renderLogs();
+    },
+    changePage: (dir) => {
+        supervisor.currentPage += dir;
+        supervisor.renderLogs();
+    },
     addThirdParty: () => {
         const nameInp = document.getElementById('third-party-name');
         if (!nameInp.value) return alert("Please enter a name");
@@ -267,7 +265,22 @@ const supervisor = {
             entries = entries.filter(e => e.name.toLowerCase().includes(searchTerm));
         }
 
-        tbody.innerHTML = entries.slice(0, 10).map(entry => `
+        if (searchTerm !== supervisor.lastSearch) {
+            supervisor.currentPage = 1;
+            supervisor.lastSearch = searchTerm;
+        }
+
+        const totalPages = Math.ceil(entries.length / supervisor.rowsPerPage) || 1;
+        if (supervisor.currentPage > totalPages) supervisor.currentPage = totalPages;
+        if (supervisor.currentPage < 1) supervisor.currentPage = 1;
+
+        const start = (supervisor.currentPage - 1) * supervisor.rowsPerPage;
+        const paginatedEntries = entries.slice(start, start + supervisor.rowsPerPage);
+
+        const pageInfo = document.getElementById('supervisor-page-info');
+        if (pageInfo) pageInfo.innerText = `Page ${supervisor.currentPage} of ${totalPages}`;
+
+        tbody.innerHTML = paginatedEntries.map(entry => `
             <tr>
                 <td><strong>${entry.name}</strong><br><small style="color:var(--secondary-color)">By: ${entry.registeredBy}</small></td>
                 <td>${entry.in}</td>
@@ -297,10 +310,33 @@ const supervisor = {
 
 // Admin Logic
 const admin = {
+    currentPage: 1,
+    rowsPerPage: 5,
+
+    updateRows: () => {
+        admin.rowsPerPage = parseInt(document.getElementById('admin-rows').value);
+        admin.currentPage = 1;
+        admin.renderList();
+    },
+    changePage: (dir) => {
+        admin.currentPage += dir;
+        admin.renderList();
+    },
     renderList: () => {
         const users = storage.getUsers().filter(u => u.role !== 'admin');
         const tbody = document.getElementById('admin-user-list');
-        tbody.innerHTML = users.map(u => `
+
+        const totalPages = Math.ceil(users.length / admin.rowsPerPage) || 1;
+        if (admin.currentPage > totalPages) admin.currentPage = totalPages;
+        if (admin.currentPage < 1) admin.currentPage = 1;
+
+        const start = (admin.currentPage - 1) * admin.rowsPerPage;
+        const paginatedUsers = users.slice(start, start + admin.rowsPerPage);
+
+        const pageInfo = document.getElementById('admin-page-info');
+        if (pageInfo) pageInfo.innerText = `Page ${admin.currentPage} of ${totalPages}`;
+
+        tbody.innerHTML = paginatedUsers.map(u => `
             <tr>
                 <td><strong>${u.username}</strong></td>
                 <td><span class="status-badge" style="background:${u.status === 'approved' ? 'var(--success-color)' : 'var(--secondary-color)'}">${u.status}</span></td>
