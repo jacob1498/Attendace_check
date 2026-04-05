@@ -86,11 +86,7 @@ const auth = {
         const { data, error } = await supabase.auth.signUp({ email, password: passInp });
         if (error) return alert(error.message);
 
-        await supabase.from('profiles').insert([
-            { id: data.user.id, username: email, role: 'user', status: 'pending' }
-        ]);
-
-        alert("Registration successful! Waiting for Admin approval.");
+        alert("Registration successful! Please check your email for confirmation (if enabled) and wait for Admin approval.");
         ui.showView('login');
     },
 
@@ -194,23 +190,18 @@ const supervisor = {
         supervisor.currentPage += dir;
         supervisor.renderLogs();
     },
-    addThirdParty: () => {
+    addThirdParty: async () => {
         const nameInp = document.getElementById('third-party-name');
         if (!nameInp.value) return alert("Please enter a name");
 
-        const entries = storage.getThirdParty();
-        if (entries.find(e => e.name === nameInp.value)) return alert("This person is already registered.");
-
-        entries.unshift({
+        const { error } = await supabase.from('third_party_logs').insert([{
             name: nameInp.value,
             registeredBy: currentUser.username,
-            in: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            breakOut: '-',
-            breakIn: '-',
-            out: '-'
-        });
+            in: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
 
-        storage.saveThirdParty(entries);
+        if (error) return alert(error.message);
+
         nameInp.value = '';
         supervisor.renderLogs();
         alert("3rd Party Registered Successfully");
@@ -223,28 +214,26 @@ const supervisor = {
         }
     },
 
-    quickLog: (name, field) => {
-        const entries = storage.getThirdParty();
-        const entry = entries.find(e => e.name === name);
-        if (entry) {
-            entry[field] = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            storage.saveThirdParty(entries);
-            supervisor.renderLogs();
-        }
-    },
-
-    deleteEntry: (name) => {
-        if (!confirm(`Are you sure you want to delete ${name}?`)) return;
-        let entries = storage.getThirdParty();
-        entries = entries.filter(e => e.name !== name);
-        storage.saveThirdParty(entries);
+    quickLog: async (id, field) => {
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const { error } = await supabase
+            .from('third_party_logs')
+            .update({ [field]: timeStr })
+            .eq('id', id);
+        
+        if (error) alert(error.message);
         supervisor.renderLogs();
     },
 
-    updateStats: () => {
-        const entries = storage.getThirdParty();
+    deleteEntry: async (id) => {
+        if (!confirm(`Are you sure you want to delete this entry?`)) return;
+        await supabase.from('third_party_logs').delete().eq('id', id);
+        supervisor.renderLogs();
+    },
+
+    updateStats: (entries) => {
         const total = entries.length;
-        const onBreak = entries.filter(e => e.breakOut !== '-' && e.breakIn === '-').length;
+        const onBreak = entries.filter(e => e.break_out !== '-' && e.break_in === '-').length;
         const out = entries.filter(e => e.out !== '-').length;
 
         if (document.getElementById('stat-total')) {
@@ -254,12 +243,13 @@ const supervisor = {
         }
     },
 
-    renderLogs: () => {
+    renderLogs: async () => {
         const tbody = document.getElementById('third-party-table-body');
         const searchTerm = document.getElementById('third-party-search')?.value.toLowerCase() || '';
-        let entries = storage.getThirdParty();
+        let { data: entries } = await supabase.from('third_party_logs').select('*').order('created_at', { ascending: false });
 
-        supervisor.updateStats();
+        if (!entries) return;
+        supervisor.updateStats(entries);
 
         if (searchTerm) {
             entries = entries.filter(e => e.name.toLowerCase().includes(searchTerm));
@@ -282,23 +272,23 @@ const supervisor = {
 
         tbody.innerHTML = paginatedEntries.map(entry => `
             <tr>
-                <td><strong>${entry.name}</strong><br><small style="color:var(--secondary-color)">By: ${entry.registeredBy}</small></td>
+                <td><strong>${entry.name}</strong><br><small style="color:var(--secondary-color)">By: ${entry.registered_by}</small></td>
                 <td>${entry.in}</td>
-                <td>${entry.breakOut}</td>
-                <td>${entry.breakIn}</td>
+                <td>${entry.break_out}</td>
+                <td>${entry.break_in}</td>
                 <td>${entry.out}</td>
                 <td>
                     <div class="action-group">
-                        <button title="Break" onclick="supervisor.quickLog('${entry.name}', 'breakOut')" class="icon-btn" style="background:var(--accent-color);">
+                        <button title="Break" onclick="supervisor.quickLog('${entry.id}', 'break_out')" class="icon-btn" style="background:var(--accent-color);">
                             ${ICONS.break}
                         </button>
-                        <button title="Return" onclick="supervisor.quickLog('${entry.name}', 'breakIn')" class="icon-btn" style="background:var(--primary-color);">
+                        <button title="Return" onclick="supervisor.quickLog('${entry.id}', 'break_in')" class="icon-btn" style="background:var(--primary-color);">
                             ${ICONS.return}
                         </button>
-                        <button title="Out" onclick="supervisor.quickLog('${entry.name}', 'out')" class="icon-btn" style="background:var(--secondary-color);">
+                        <button title="Out" onclick="supervisor.quickLog('${entry.id}', 'out')" class="icon-btn" style="background:var(--secondary-color);">
                             ${ICONS.out}
                         </button>
-                        <button title="Delete" onclick="supervisor.deleteEntry('${entry.name}')" class="icon-btn" style="background:var(--danger-color);">
+                        <button title="Delete" onclick="supervisor.deleteEntry('${entry.id}')" class="icon-btn" style="background:var(--danger-color);">
                             ${ICONS.delete}
                         </button>
                     </div>
@@ -322,10 +312,11 @@ const admin = {
         admin.currentPage += dir;
         admin.renderList();
     },
-    renderList: () => {
-        const users = storage.getUsers().filter(u => u.role !== 'admin');
+    renderList: async () => {
+        const { data: users } = await supabase.from('profiles').select('*').neq('role', 'admin');
         const tbody = document.getElementById('admin-user-list');
 
+        if (!users) return;
         const totalPages = Math.ceil(users.length / admin.rowsPerPage) || 1;
         if (admin.currentPage > totalPages) admin.currentPage = totalPages;
         if (admin.currentPage < 1) admin.currentPage = 1;
@@ -344,37 +335,31 @@ const admin = {
                 <td>
                     <div class="action-group">
                         ${u.status === 'pending' ? 
-                            `<button title="Approve User" onclick="admin.approve('${u.username}')" class="icon-btn" style="background:var(--success-color)">${ICONS.approve}</button>` : 
-                            `<button title="Toggle Role" onclick="admin.toggleRole('${u.username}')" class="icon-btn" style="background:var(--primary-color)">${ICONS.promote}</button>`
+                            `<button title="Approve User" onclick="admin.approve('${u.id}')" class="icon-btn" style="background:var(--success-color)">${ICONS.approve}</button>` : 
+                            `<button title="Toggle Role" onclick="admin.toggleRole('${u.id}', '${u.role}')" class="icon-btn" style="background:var(--primary-color)">${ICONS.promote}</button>`
                         }
-                        <button title="Delete User" onclick="admin.delete('${u.username}')" class="icon-btn" style="background:var(--danger-color)">${ICONS.delete}</button>
+                        <button title="Delete User" onclick="admin.delete('${u.id}')" class="icon-btn" style="background:var(--danger-color)">${ICONS.delete}</button>
                     </div>
                 </td>
             </tr>
         `).join('');
     },
 
-    toggleRole: (username) => {
-        const users = storage.getUsers();
-        const user = users.find(u => u.username === username);
-        user.role = user.role === 'supervisor' ? 'user' : 'supervisor';
-        storage.saveUsers(users);
+    toggleRole: async (id, currentRole) => {
+        const newRole = currentRole === 'supervisor' ? 'user' : 'supervisor';
+        await supabase.from('profiles').update({ role: newRole }).eq('id', id);
         admin.renderList();
     },
 
-    approve: (username) => {
-        const users = storage.getUsers();
-        const user = users.find(u => u.username === username);
-        user.status = 'approved';
-        storage.saveUsers(users);
+    approve: async (id) => {
+        await supabase.from('profiles').update({ status: 'approved' }).eq('id', id);
         admin.renderList();
     },
 
-    delete: (username) => {
+    delete: async (id) => {
         if(!confirm('Are you sure?')) return;
-        let users = storage.getUsers();
-        users = users.filter(u => u.username !== username);
-        storage.saveUsers(users);
+        // Note: Actual user deletion requires Supabase Admin API or manual deletion in Dashboard
+        await supabase.from('profiles').delete().eq('id', id);
         admin.renderList();
     }
 };
